@@ -4,6 +4,8 @@ recreate a target photo
 """
 import os
 import math
+import cv2 as cv
+from sklearn.feature_selection import chi2
 from image_tools import ImageTools
 import numpy as np
 from PIL import Image
@@ -104,17 +106,22 @@ def mosaic(target, directory, thumb_size):
     
     for i in range(split_target.shape[0]):
             target_chunk = split_target[i]
-            min_mse = math.inf
+            target_hist = cv.calcHist([target_chunk], [0, 1, 2], None, [8, 8, 8],
+		        [0, 256, 0, 256, 0, 256])
+            target_hist = cv.normalize(target_hist, target_hist).flatten()
+            min_dist = math.inf
             for thumbnail in thumbnails:
-                thumb_mse = mse(thumbnail, target_chunk)
-                if thumb_mse < min_mse:
-                    min_mse = thumb_mse
+                thumb_hist = cv.calcHist([thumbnail], [0, 1, 2], None, [8, 8, 8],
+		            [0, 256, 0, 256, 0, 256])
+                thumb_hist = cv.normalize(thumb_hist, thumb_hist).flatten()
+                chi2distance = cv.compareHist(target_hist,thumb_hist,cv.HISTCMP_CHISQR)
+                if chi2distance < min_dist:
+                    min_dist = chi2distance
                     final_thumb = thumbnail
             final_thumbs.append(final_thumb)
 
     final_array = np.asarray(final_thumbs)
     
-
     final_array = np.reshape(final_array, (num_blocks, num_blocks, thumb_size, thumb_size, -1))
     final_array = np.transpose(final_array,(0,2,1,3,4))
     final_array = np.reshape(final_array, (num_blocks*thumb_size, num_blocks*thumb_size, -1))
