@@ -12,7 +12,7 @@ class ImageTools:
         assigns properties of the image to variables
         """
         try:
-            image_file = Image.open(file_path)
+            image_file = Image.open(file_path).convert("RGB")
         except IOError as e:
             print(e)
             return
@@ -81,31 +81,36 @@ class ImageTools:
 
         output_file.close()
 
-    def convert_target(self, thumb_size):
+    def convert_target(self, thumb_size, greyscale=False):
         """
-        Given an image, saves a cropped, greyscale png of the image, and also
-        saves a csv version of the target image
+        Given an image, saves a cropped, greyscale png of the image
         """
         image = self.center_crop(self.image_file)
         wi, hi = image.size
         rounded = wi - (wi % thumb_size)
         image.thumbnail((rounded, rounded))
-        image = ImageOps.grayscale(image)
+        
+        if greyscale:
+            image = ImageOps.grayscale(image)
 
         image.save('images/final/target.png')
 
-        target_grid = self.make_grid(image)
-        self.write_grid('images/final/target.csv', target_grid)
-
-    def convert_thumb(self, thumb_size):
+    def convert_thumb(self, thumb_size, greyscale=False, csv = False):
         """
         Given an image and size to be cropped to, saves a cropped, greyscale
         csv of the image
         """
         image = self.center_crop(self.image_file)
-        image.thumbnail((self.thumb_size, thumb_size))
-        image = ImageOps.grayscale(image)
+        image.thumbnail((thumb_size, thumb_size))
+        if greyscale:
+            image = ImageOps.grayscale(image)
 
-        thumb_grid = self.make_grid(image)
-        file_name = os.path.join('csv', self.input_filename + '.csv')
-        self.write_grid(file_name, thumb_grid)
+        if csv:
+            thumb_grid = self.make_grid(image)
+            file_name = os.path.join('csv', self.input_filename + '.csv')
+            self.write_grid(file_name, thumb_grid)
+        else:
+            file_name = os.path.join('png', self.input_filename + '.png')
+            image.save(file_name)
+        
+

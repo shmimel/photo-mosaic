@@ -30,6 +30,7 @@ def target_gen(file_name, size):
     it.convert_target(size)
 
 
+
 def csv2array(file_name):
     """
     Converts a csv to an array
@@ -41,7 +42,7 @@ def csv2array(file_name):
 
 def mse(A, B):
     """
-    Given two arrays, returns the mean squared error between them
+    Given two array (of equal dimension), returns the mean squared error between them
     (the lower the better!)
     """
     mse = ((A - B)**2).mean(axis=None)
@@ -68,28 +69,41 @@ def array2pic(array, file_name):
     except Exception:
         print("Unexpected error writing file", file_name)
 
+def subdivide_sqr_image(img, blocks):
 
-def mosaic(target, directory):
+    assert img.shape[0] == img.shape[1] #Image is indeed square
+
+    subblock_size = int(img.shape[0]/blocks)
+
+    split_img = np.array_split(img, blocks, axis=0)
+    split_img = [np.array_split(block, blocks, axis=1) for block in split_img]
+    return np.asarray(split_img).reshape((blocks**2, subblock_size, subblock_size, -1))
+
+def mosaic(target, directory, thumb_size):
     """
-    Given a target image and a starting directory of csv files, recreates
+    Given a target image (as PNG) and a starting directory of png files, recreates
     the target image from the files in the directory
     """
-    thumb_size = 20
-    target_csv = csv2array(target)
+
+    target = Image.open(target).convert("RGB")
+    target = np.array(target)
 
     thumbnails = []
     for file_name in os.listdir(directory):
-        f = os.path.join(directory, file_name)
-        thumbnail = csv2array(f)
+        file_name = os.path.join(directory, file_name)
+        thumbnail = Image.open(file_name).convert("RGB")
+        thumbnail = np.array(thumbnail)
         thumbnails.append(thumbnail)
 
-    length = int(len(target_csv)/thumb_size)
+
+    num_blocks = int(target.shape[0]/thumb_size)
+
+    split_target = subdivide_sqr_image(target, num_blocks)
+
     final_thumbs = []
-    final_array = np.zeros((length*thumb_size, length*thumb_size))
-    for i in range(length):
-        for j in range(length):
-            target_chunk = target_csv[i*thumb_size:(i+1)*thumb_size,
-                                      j*thumb_size:(j+1)*thumb_size]
+    
+    for i in range(split_target.shape[0]):
+            target_chunk = split_target[i]
             min_mse = math.inf
             for thumbnail in thumbnails:
                 thumb_mse = mse(thumbnail, target_chunk)
@@ -97,19 +111,25 @@ def mosaic(target, directory):
                     min_mse = thumb_mse
                     final_thumb = thumbnail
             final_thumbs.append(final_thumb)
-            final_array[i*thumb_size:(i+1)*thumb_size,
-                        j*thumb_size:(j+1)*thumb_size] = final_thumb
 
-    array2pic(final_array, 'images/final/mosaic')
+    final_array = np.asarray(final_thumbs)
+    
+
+    final_array = np.reshape(final_array, (num_blocks, num_blocks, thumb_size, thumb_size, -1))
+    final_array = np.transpose(final_array,(0,2,1,3,4))
+    final_array = np.reshape(final_array, (num_blocks*thumb_size, num_blocks*thumb_size, -1))
+
+    final_image = Image.fromarray(final_array)
+    final_image.save("/Users/erb/Desktop/CS/photo-mosaic/images/final/Mosiac.png")
 
 
 def main():
     size = 20
     # Note, after running once, comment out the "thumbnail" line, as
     # csv generation takes some time
-    # thumbnail_gen('images/original', size)
+    #thumbnail_gen('images/original', size)
     target_gen('images/original/helens.png', size)
-    mosaic('images/final/target.csv', 'csv')
+    mosaic('images/final/target.png', 'png', 20)
 
 
 if __name__ == "__main__":
